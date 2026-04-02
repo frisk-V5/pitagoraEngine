@@ -1,31 +1,39 @@
-name: Build-Siv3D-App
-on: [push]
+name: Build-Pythagoras-Siv3D
+on:
+  push:
+    branches-ignore: [ main ] # main以外で動かす
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive # サブモジュールがあれば取得
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: NuGet Restore
-        run: nuget restore *.sln # 依存ライブラリの復元
-
-      - name: Build Release
-        # *.sln でリポジトリ内のソリューションを自動検出し、Releaseビルドを実行
-        run: msbuild *.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Never
+      - name: Build Game
+        shell: pwsh
+        run: |
+          $sln = Get-ChildItem -Filter *.sln -Recurse | Select-Object -First 1
+          nuget restore $sln.FullName
+          msbuild $sln.FullName /p:Configuration=Release /p:Platform=x64
 
       - name: Upload Artifact
-        # ビルドされたexe一式を「Pythagoras-EXE」という名前でアップロード
+        id: artifact-upload # IDを振っておく
         uses: actions/upload-artifact@v4
         with:
-          name: Pythagoras-EXE
-          # Siv3Dの標準的な出力先である「App」フォルダをまるごと保存
+          name: Pythagoras-Game-EXE
           path: |
             App/
-            x64/Release/
-          if-no-files-found: warn
+            x64/Release/*.exe
+
+      - name: Show Download URL
+        shell: pwsh
+        run: |
+          # 成果物のダウンロードページURLを表示
+          $url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          Write-Host "--------------------------------------------------"
+          Write-Host "ビルド完了！成果物は以下のURLからダウンロードしてください："
+          Write-Host $url
+          Write-Host "--------------------------------------------------"
